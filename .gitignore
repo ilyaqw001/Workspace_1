@@ -1,1 +1,4 @@
-Nothing needs to be added to .gitignore since only a Python source file (`fix_pdf_layout.py`) was modified and there are no build artifacts, dependencies, or temporary files in the changes.
+```
+# PDF test files
+*.pdf
+```
