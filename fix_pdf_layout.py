@@ -67,6 +67,9 @@ def process_pdf(input_pdf_path, output_pdf_path):
     total_pages = len(doc)
     print(f"[*] Обработка страниц процессором макета. Всего: {total_pages}")
 
+    # Загружаем шрифт один раз для всех страниц - это гарантирует корректную CMap
+    font = pymupdf.Font(fontfile=font_file_path)
+
     for page_num in range(total_pages):
         page = doc[page_num]
         rect = page.rect
@@ -114,16 +117,13 @@ def process_pdf(input_pdf_path, output_pdf_path):
                     # Динамический расчет размера букв
                     font_size = max(6, min(14, y1 - y0))
 
-                    # Накладываем невидимый текстовый слой с использованием найденного шрифта
-                    # Явно указываем кодировку для корректной работы CMap с кириллицей
-                    # Используем параметр encoding для принудительной установки UTF-8 кодировки
+                    # Накладываем невидимый текстовый слой с использованием предварительно загруженного шрифта
+                    # Передача объекта Font гарантирует корректное создание CMap для кириллицы
                     new_page.insert_text(
                         pymupdf.Point(x0, y1 - 2),
                         line_text,
                         fontsize=font_size,
-                        fontname="dynamic-ocr-font",
-                        fontfile=font_file_path,
-                        encoding="utf8",
+                        font=font,
                         render_mode=3
                     )
 
