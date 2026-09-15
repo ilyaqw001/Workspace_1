@@ -25,20 +25,46 @@ def load_settings():
 
 def find_any_true_type_font():
     """
-    Динамически ищет первый попавшийся TrueType-шрифт в проброшенном каталоге.
-    Исключает закладывание неверных жестких путей.
+    Динамически ищет TrueType-шрифт с поддержкой кириллицы в проброшенном каталоге.
+    Приоритет отдается известным шрифтам с кириллицей: DejaVu, Liberation, Arial и т.д.
     """
     fonts_dir = "/usr/share/fonts"
     if not os.path.exists(fonts_dir):
         return None
 
+    # Сначала ищем известные шрифты с кириллицей
+    preferred_fonts = ["dejavu", "liberation", "arial", "times", "courier"]
+    
+    # Первый проход: ищем предпочтительные шрифты
+    for root, _, files in os.walk(fonts_dir):
+        for file in files:
+            if file.lower().endswith(".ttf"):
+                lower_file = file.lower()
+                for pref in preferred_fonts:
+                    if pref in lower_file:
+                        full_path = os.path.join(root, file)
+                        if os.path.isfile(full_path) and os.path.getsize(full_path) > 0:
+                            # Проверяем, содержит ли шрифт кириллицу
+                            try:
+                                test_font = pymupdf.Font(fontfile=full_path)
+                                if test_font.has_glyph(ord("А")):  # Проверяем наличие кириллического символа
+                                    return full_path
+                            except Exception:
+                                pass
+
+    # Второй проход: любой доступный TTF с проверкой на кириллицу
     for root, _, files in os.walk(fonts_dir):
         for file in files:
             if file.lower().endswith(".ttf"):
                 full_path = os.path.join(root, file)
-                # Проверяем, что файл реально читается
                 if os.path.isfile(full_path) and os.path.getsize(full_path) > 0:
-                    return full_path
+                    try:
+                        test_font = pymupdf.Font(fontfile=full_path)
+                        if test_font.has_glyph(ord("А")):  # Проверяем наличие кириллического символа
+                            return full_path
+                    except Exception:
+                        pass
+    
     return None
 
 def process_pdf(input_pdf_path, output_pdf_path):
@@ -67,8 +93,11 @@ def process_pdf(input_pdf_path, output_pdf_path):
     total_pages = len(doc)
     print(f"[*] Обработка страниц процессором макета. Всего: {total_pages}")
 
-    # Загружаем шрифт один раз для всех страниц - это гарантирует корректную CMap
-    font = pymupdf.Font(fontfile=font_file_path)
+    # Регистрируем шрифт с кириллицей на первой странице для получения имени шрифта
+    # encoding=0 означает Unicode кодировку, что критически важно для корректной работы CMap
+    first_page = doc[0]
+    fontname = first_page.insert_font(fontname='CyrillicFont', fontfile=font_file_path, encoding=0)
+    print(f"[*] Шрифт зарегистрирован с именем: {fontname}")
 
     for page_num in range(total_pages):
         page = doc[page_num]
@@ -117,13 +146,17 @@ def process_pdf(input_pdf_path, output_pdf_path):
                     # Динамический расчет размера букв
                     font_size = max(6, min(14, y1 - y0))
 
-                    # Накладываем невидимый текстовый слой с использованием предварительно загруженного шрифта
-                    # Передача объекта Font гарантирует корректное создание CMap для кириллицы
+                    # Регистрируем шрифт на новой странице один раз при первой итерации
+                    # encoding=0 означает Unicode кодировку, что критически важно для кириллицы
+                    if 'page_fontname' not in locals():
+                        page_fontname = new_page.insert_font(fontname='CyrillicFont', fontfile=font_file_path, encoding=0)
+                    
+                    # Накладываем невидимый текстовый слой с использованием зарегистрированного шрифта с кириллицей
                     new_page.insert_text(
                         pymupdf.Point(x0, y1 - 2),
                         line_text,
                         fontsize=font_size,
-                        font=font,
+                        fontname='CyrillicFont',
                         render_mode=3
                     )
 
