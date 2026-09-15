@@ -67,8 +67,9 @@ def process_pdf(input_pdf_path, output_pdf_path):
     total_pages = len(doc)
     print(f"[*] Обработка страниц процессором макета. Всего: {total_pages}")
 
-    # Загружаем шрифт один раз для всех страниц - это гарантирует корректную CMap
-    font = pymupdf.Font(fontfile=font_file_path)
+    # Загружаем шрифт один раз для всех страниц с явным указанием UTF-8 кодировки
+    # Это критически важно для корректной работы CMap в изолированной среде без fontconfig
+    font = pymupdf.Font(fontfile=font_file_path, encoding="utf8")
 
     for page_num in range(total_pages):
         page = doc[page_num]
