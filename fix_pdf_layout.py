@@ -115,12 +115,15 @@ def process_pdf(input_pdf_path, output_pdf_path):
                     font_size = max(6, min(14, y1 - y0))
 
                     # Накладываем невидимый текстовый слой с использованием найденного шрифта
+                    # Явно указываем кодировку для корректной работы CMap с кириллицей
+                    # Используем параметр encoding для принудительной установки UTF-8 кодировки
                     new_page.insert_text(
                         pymupdf.Point(x0, y1 - 2),
                         line_text,
                         fontsize=font_size,
                         fontname="dynamic-ocr-font",
                         fontfile=font_file_path,
+                        encoding="utf8",
                         render_mode=3
                     )
 
