@@ -10,7 +10,8 @@ CONFIG_FILE = "ocr_layout_config.json"
 DEFAULT_CONFIG = {
     "block_distance_threshold": 15.0,
     "strip_hyphens": True,
-    "force_dpi": 150
+    "force_dpi": 150,
+    "text_width_scale": 1.0  # Коэффициент масштабирования ширины текстового блока (для фиксации вылезания за границы)
 }
 
 def load_settings():
@@ -73,6 +74,7 @@ def process_pdf(input_pdf_path, output_pdf_path):
     block_threshold = cfg.get("block_distance_threshold", 15.0)
     strip_hyphens = cfg.get("strip_hyphens", True)
     render_dpi = cfg.get("force_dpi", 150)
+    width_scale = cfg.get("text_width_scale", 1.0)  # Коэффициент масштабирования ширины текста
 
     # 2. Динамический поиск шрифта в проброшенной системе
     font_file_path = find_any_true_type_font()
@@ -151,9 +153,18 @@ def process_pdf(input_pdf_path, output_pdf_path):
                     if 'page_fontname' not in locals():
                         page_fontname = new_page.insert_font(fontname='CyrillicFont', fontfile=font_file_path, encoding=0)
                     
+                    # Расчет ширины текста с учетом коэффициента масштабирования
+                    # Это предотвращает выход невидимого текстового слоя за пределы страницы
+                    text_width = (x1 - x0) * width_scale
+                    
+                    # Корректируем координату X, если текст выходит за правую границу страницы
+                    adjusted_x0 = x0
+                    if adjusted_x0 + text_width > rect.width:
+                        adjusted_x0 = max(0, rect.width - text_width)
+                    
                     # Накладываем невидимый текстовый слой с использованием зарегистрированного шрифта с кириллицей
                     new_page.insert_text(
-                        pymupdf.Point(x0, y1 - 2),
+                        pymupdf.Point(adjusted_x0, y1 - 2),
                         line_text,
                         fontsize=font_size,
                         fontname='CyrillicFont',
